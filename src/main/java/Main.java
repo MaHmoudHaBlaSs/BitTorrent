@@ -10,7 +10,6 @@ public class Main {
     
     String command = args[0];
     if("decode".equals(command)) {
-      //  TODO: Uncomment the code below to pass the first stage
         String bencodedValue = args[1];
         String decoded;
         try {
@@ -27,8 +26,16 @@ public class Main {
 
   }
 
+  // NOTE: Encoding Scheme
+  // Integer: -23 => i-23e
+  // String: "str" => 3:str
+  // List: ["str", -23] => l3:stri-23ee
+  // Dict: ["A": 1, "B": "name"] => d1:Ai1e1:B4:namee
+
   static String decodeBencode(String bencodedString) {
-    if (Character.isDigit(bencodedString.charAt(0))) {
+    char flag = bencodedString.charAt(0);
+
+    if (Character.isDigit(flag)) {
       int firstColonIndex = 0;
       for(int i = 0; i < bencodedString.length(); i++) { 
         if(bencodedString.charAt(i) == ':') {
@@ -38,7 +45,16 @@ public class Main {
       }
       int length = Integer.parseInt(bencodedString.substring(0, firstColonIndex));
       return bencodedString.substring(firstColonIndex+1, firstColonIndex+1+length);
-    } else {
+    }
+    else if (flag == 'i') {
+      int end;
+      for (end = 1; end < bencodedString.length(); end++){
+        if (bencodedString.charAt(end) == 'e')
+          break;
+      }
+      return bencodedString.substring(1, end);
+    }
+    else {
       throw new RuntimeException("Only strings are supported at the moment");
     }
   }
