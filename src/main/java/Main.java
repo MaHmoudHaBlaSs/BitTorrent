@@ -11,7 +11,7 @@ public class Main {
     String command = args[0];
     if("decode".equals(command)) {
         String bencodedValue = args[1];
-        String decoded;
+        Object decoded;
         try {
           decoded = decodeBencode(bencodedValue);
         } catch(RuntimeException e) {
@@ -32,12 +32,12 @@ public class Main {
   // List: ["str", -23] => l3:stri-23ee
   // Dict: ["A": 1, "B": "name"] => d1:Ai1e1:B4:namee
 
-  static String decodeBencode(String bencodedString) {
+  static Object decodeBencode(String bencodedString) {
     char flag = bencodedString.charAt(0);
 
-    if (Character.isDigit(flag)) {
+    if (Character.isDigit(flag)) { // String Decode
       int firstColonIndex = 0;
-      for(int i = 0; i < bencodedString.length(); i++) { 
+      for(int i = 0; i < bencodedString.length(); i++) {
         if(bencodedString.charAt(i) == ':') {
           firstColonIndex = i;
           break;
@@ -46,17 +46,16 @@ public class Main {
       int length = Integer.parseInt(bencodedString.substring(0, firstColonIndex));
       return bencodedString.substring(firstColonIndex+1, firstColonIndex+1+length);
     }
-    else if (flag == 'i') {
+    else if (flag == 'i') { // Integer Decode
       int end;
       for (end = 1; end < bencodedString.length(); end++){
         if (bencodedString.charAt(end) == 'e')
           break;
       }
-      return bencodedString.substring(1, end);
+      return Integer.parseInt(bencodedString.substring(1, end));
     }
     else {
       throw new RuntimeException("Only strings are supported at the moment");
     }
   }
-  
 }
