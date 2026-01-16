@@ -55,7 +55,6 @@ public class Main {
         }
     }
     static Pair decodeInteger(String bencodedString, int start){
-        System.out.println(bencodedString);
         int end = start+1;
         while (bencodedString.charAt(end) != 'e')
             end++;
