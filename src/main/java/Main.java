@@ -52,7 +52,7 @@ public class Main {
         if (bencodedString.charAt(end) == 'e')
           break;
       }
-      return Integer.parseInt(bencodedString.substring(1, end));
+      return Long.parseLong(bencodedString.substring(1, end));
     }
     else {
       throw new RuntimeException("Only strings are supported at the moment");
