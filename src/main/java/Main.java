@@ -1,10 +1,14 @@
+import com.dampcake.bencode.Type;
 import com.google.gson.Gson;
 
 
 import java.util.LinkedList;
-// import com.dampcake.bencode.Bencode; - available if you need it!
+import java.util.Map;
+
+import com.dampcake.bencode.Bencode; // available if you need it!
 
 public class Main {
+    private static final Bencode bencode = new Bencode();
     private static final Gson gson = new Gson();
     private record Pair(Object retVal, Integer end){ }
 
@@ -50,8 +54,11 @@ public class Main {
             Pair ret = decodeList(bencodedString, 0);
             return ret.retVal;
         }
+        else if (flag == 'd'){
+            return decodeDict(bencodedString);
+        }
         else {
-            throw new RuntimeException("Only strings are supported at the moment");
+            throw new RuntimeException("Not supported B-encoded value");
         }
     }
     static Pair decodeInteger(String bencodedString, int start){
@@ -105,5 +112,10 @@ public class Main {
         }
         return new Pair(list, end);
     }
-    //static Pair decodeDict(String bencodedString, int start){}
+
+    // Keys must be strings and sorted Lexicographically.
+    // {"hello": 52, "foo":"bar"} would be encoded as: d3:foo3:bar5:helloi52ee
+    static Map<String, Object> decodeDict(String bencodedString){
+        return bencode.decode(bencodedString.getBytes(), Type.DICTIONARY);
+    }
 }
