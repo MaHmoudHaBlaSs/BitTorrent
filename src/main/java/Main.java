@@ -3,6 +3,7 @@ import com.google.gson.Gson;
 
 
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 
 import com.dampcake.bencode.Bencode; // available if you need it!
@@ -10,7 +11,6 @@ import com.dampcake.bencode.Bencode; // available if you need it!
 public class Main {
     private static final Bencode bencode = new Bencode();
     private static final Gson gson = new Gson();
-    private record Pair(Object retVal, Integer end){ }
 
     public static void main(String[] args) throws Exception {
         // You can use print statements as follows for debugging, they'll be visible when running tests.
@@ -27,7 +27,11 @@ public class Main {
                 return;
             }
             System.out.println(gson.toJson(decoded));
-        } else {
+        }
+        else if ("info".equals(command)){
+            // TODO: Extract announce URL and length
+        }
+        else {
             System.out.println("Unknown command: " + command);
         }
 
@@ -40,77 +44,62 @@ public class Main {
     // Dict: ["A": 1, "B": "name"] => d1:Ai1e1:B4:namee
 
     static Object decodeBencode(String bencodedString) {
-        char flag = bencodedString.charAt(0);
+        EncodingType type = getType(bencodedString.charAt(0));
 
-        if (Character.isDigit(flag)) { // String Decode
-            Pair ret = decodeString(bencodedString, 0);
-            return ret.retVal;
+        if (type == EncodingType.STRING) { // String Decode
+            return decodeString(bencodedString);
         }
-        else if (flag == 'i') { // Integer Decode
-            Pair ret = decodeInteger(bencodedString, 0);
-            return ret.retVal;
+        else if (type == EncodingType.INTEGER) { // Integer Decode
+            return decodeInteger(bencodedString);
         }
-        else if (flag == 'l') { // List Decode
-            Pair ret = decodeList(bencodedString, 0);
-            return ret.retVal;
+        else if (type == EncodingType.LIST) { // List Decode
+            return decodeList(bencodedString);
         }
-        else if (flag == 'd'){
+        else if (type == EncodingType.DICT){
             return decodeDict(bencodedString);
         }
         else {
             throw new RuntimeException("Not supported B-encoded value");
         }
+
     }
-    static Pair decodeInteger(String bencodedString, int start){
-        int end = start+1;
+    static EncodingType getType(char flag){
+        if (Character.isDigit(flag)) { // String Decode
+            return EncodingType.STRING;
+        }
+        else if (flag == 'i') { // Integer Decode
+            return EncodingType.INTEGER;
+        }
+        else if (flag == 'l') { // List Decode
+            return EncodingType.LIST;
+        }
+        else if (flag == 'd'){
+            return EncodingType.DICT;
+        }
+        else{
+            return EncodingType.UNKNOWN;
+        }
+    }
+
+    static Long decodeInteger(String bencodedString){
+        int end = 1;
         while (bencodedString.charAt(end) != 'e')
             end++;
 
-        return new Pair(Long.parseLong(bencodedString.substring(start+1, end)), end);
+        return Long.parseLong(bencodedString.substring(1, end));
     }
 
-    static Pair decodeString(String bencodedString, int start){
-        int end = start+1;
+    static String decodeString(String bencodedString){
+        int end = 1;
         while (bencodedString.charAt(end) != ':')
             end++;
-        int length = Integer.parseInt(bencodedString.substring(start, end));
+        int length = Integer.parseInt(bencodedString.substring(0, end));
 
-        Object retVal = bencodedString.substring(end + 1, end + length + 1);
-        end = end + length; // Last character index in the string
-        return new Pair(retVal, end);
+        return bencodedString.substring(end + 1, end + 1 + length);
     }
 
-    static Pair decodeList(String bencodedString, int start){
-        int end = start + 1;
-        LinkedList<Object> list = new LinkedList<>();
-
-        for (int i = start + 1 ; i < bencodedString.length(); i++) {
-
-            if (Character.isDigit(bencodedString.charAt(i))) { // String Element
-                Pair ret = decodeString(bencodedString, i);
-                list.add(ret.retVal);
-                i = ret.end;
-            }
-            else if (bencodedString.charAt(i) == 'i') { // Integer Element
-                Pair ret = decodeInteger(bencodedString, i);
-                list.add(ret.retVal);
-                i = ret.end;
-
-            }
-            else if (bencodedString.charAt(i) == 'l'){ // Nested list
-                Pair ret = decodeList(bencodedString, i);
-                list.add(ret.retVal);
-                i = ret.end;
-            }
-            else if (bencodedString.charAt(i) == 'd'){
-                // TODO: Dictionary
-            }
-            else{ // Character = 'e' → means the end of the list
-                end = i;
-                break;
-            }
-        }
-        return new Pair(list, end);
+    static List<Object> decodeList(String bencodedString){
+        return bencode.decode(bencodedString.getBytes(), Type.LIST);
     }
 
     // Keys must be strings and sorted Lexicographically.
