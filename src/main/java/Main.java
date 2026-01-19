@@ -31,13 +31,12 @@ public class Main {
             System.out.println(gson.toJson(decoded));
         }
         else if ("info".equals(command)){
-            // TODO: Extract announce URL and length
             byte[] torrentBytes = Files.readAllBytes(Path.of("sample.torrent"));
             Map<String, Object> meta = bencode.decode(torrentBytes, Type.DICTIONARY);
             Map<String, Object> info = (Map<String, Object>) meta.get("info");
 
             System.out.println("Tracker URL: " + meta.get("announce"));
-            System.out.println("Length: " + info.get("length"));
+            System.out.println("Length: " + (long)info.get("length"));
         }
         else {
             System.out.println("Unknown command: " + command);
