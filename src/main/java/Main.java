@@ -2,6 +2,8 @@ import com.dampcake.bencode.Type;
 import com.google.gson.Gson;
 
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +32,12 @@ public class Main {
         }
         else if ("info".equals(command)){
             // TODO: Extract announce URL and length
+            byte[] torrentBytes = Files.readAllBytes(Path.of("sample.torrent"));
+            Map<String, Object> meta = bencode.decode(torrentBytes, Type.DICTIONARY);
+            Map<String, Object> info = (Map<String, Object>) meta.get("info");
+
+            System.out.println("Tracker URL: " + meta.get("announce"));
+            System.out.println("Length: " + info.get("length"));
         }
         else {
             System.out.println("Unknown command: " + command);
