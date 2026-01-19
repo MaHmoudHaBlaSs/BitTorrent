@@ -7,6 +7,7 @@ import java.nio.file.Path;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.PriorityQueue;
 
 import com.dampcake.bencode.Bencode; // available if you need it!
 
@@ -31,7 +32,7 @@ public class Main {
             System.out.println(gson.toJson(decoded));
         }
         else if ("info".equals(command)){
-            byte[] torrentBytes = Files.readAllBytes(Path.of("sample.torrent"));
+            byte[] torrentBytes = Files.readAllBytes(Path.of(args[1]));
             Map<String, Object> meta = bencode.decode(torrentBytes, Type.DICTIONARY);
             Map<String, Object> info = (Map<String, Object>) meta.get("info");
 
