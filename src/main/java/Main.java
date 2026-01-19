@@ -37,6 +37,7 @@ public class Main {
 
     }
 
+
     // NOTE: Encoding Scheme
     // Integer: -23 => i-23e
     // String: "str" => 3:str
@@ -46,22 +47,23 @@ public class Main {
     static Object decodeBencode(String bencodedString) {
         EncodingType type = getType(bencodedString.charAt(0));
 
-        if (type == EncodingType.STRING) { // String Decode
-            return decodeString(bencodedString);
+        switch (type) {
+            case EncodingType.STRING -> { // String Decode
+                return decodeString(bencodedString);
+            }
+            case EncodingType.INTEGER -> {
+                return decodeInteger(bencodedString);
+            }
+            case EncodingType.LIST -> {
+                return decodeList(bencodedString);
+            }
+            case EncodingType.DICT -> {
+                return decodeDict(bencodedString);
+            }
+            default -> {
+                throw new RuntimeException("Unknown coded value!");
+            }
         }
-        else if (type == EncodingType.INTEGER) { // Integer Decode
-            return decodeInteger(bencodedString);
-        }
-        else if (type == EncodingType.LIST) { // List Decode
-            return decodeList(bencodedString);
-        }
-        else if (type == EncodingType.DICT){
-            return decodeDict(bencodedString);
-        }
-        else {
-            throw new RuntimeException("Not supported B-encoded value");
-        }
-
     }
     static EncodingType getType(char flag){
         if (Character.isDigit(flag)) { // String Decode
