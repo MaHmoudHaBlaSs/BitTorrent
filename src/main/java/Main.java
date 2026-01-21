@@ -4,10 +4,9 @@ import com.google.gson.Gson;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.LinkedList;
+import java.security.MessageDigest;
 import java.util.List;
 import java.util.Map;
-import java.util.PriorityQueue;
 
 import com.dampcake.bencode.Bencode; // available if you need it!
 
@@ -35,9 +34,11 @@ public class Main {
             byte[] torrentBytes = Files.readAllBytes(Path.of(args[1]));
             Map<String, Object> meta = bencode.decode(torrentBytes, Type.DICTIONARY);
             Map<String, Object> info = (Map<String, Object>) meta.get("info");
+            String shaHex = toSHA1(info);
 
             System.out.println("Tracker URL: " + meta.get("announce"));
             System.out.println("Length: " + (long)info.get("length"));
+            System.out.println("Info Hash: " + shaHex);
         }
         else {
             System.out.println("Unknown command: " + command);
@@ -116,5 +117,23 @@ public class Main {
     // {"hello": 52, "foo":"bar"} would be encoded as: d3:foo3:bar5:helloi52ee
     static Map<String, Object> decodeDict(String bencodedString){
         return bencode.decode(bencodedString.getBytes(), Type.DICTIONARY);
+    }
+
+    static String toSHA1(Map<String, Object> infoDict){
+        Bencode bencode = new Bencode();
+        try{
+            MessageDigest md = MessageDigest.getInstance("SHA-1");
+            byte[] hashedBytes = md.digest(bencode.encode(infoDict));
+
+            StringBuilder sb = new StringBuilder();
+            for (byte b: hashedBytes)
+                sb.append(String.format("%02x", b));
+
+            return sb.toString();
+
+        } catch (Exception e){
+            System.out.println(e.getMessage());
+            return "Can't Convert to SHA1";
+        }
     }
 }
