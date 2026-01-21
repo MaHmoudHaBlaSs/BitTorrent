@@ -4,11 +4,11 @@ import com.google.gson.Gson;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.MessageDigest;
 import java.util.List;
 import java.util.Map;
 
-import com.dampcake.bencode.Bencode; // available if you need it!
+import com.dampcake.bencode.Bencode;
+import org.apache.commons.codec.digest.DigestUtils;
 
 public class Main {
     private static final Bencode bencode = new Bencode();
@@ -32,12 +32,23 @@ public class Main {
         }
         else if ("info".equals(command)){
             byte[] torrentBytes = Files.readAllBytes(Path.of(args[1]));
+
             Map<String, Object> meta = bencode.decode(torrentBytes, Type.DICTIONARY);
             Map<String, Object> info = (Map<String, Object>) meta.get("info");
-            String shaHex = toSHA1(info);
+
+            // The problem is that when we re encode the decoded info dictionary,
+            // we may get different code because Java Map may change the original order,
+            // and also we need to take care of `pieces` binary format.
+
+            Bencode rawBencode = new Bencode(true); // keep string bytes as is (pieces saved).
+            // .decode() method forces lexicographical order by its implementation nature (order saved).
+            byte[] infoBytes = rawBencode.encode(
+                    (Map<String, Object>) rawBencode.decode(torrentBytes, Type.DICTIONARY).get("info"));
+            String shaHex = DigestUtils.sha1Hex(infoBytes);
+
 
             System.out.println("Tracker URL: " + meta.get("announce"));
-            System.out.println("Length: " + (long)info.get("length"));
+            System.out.println("Length: " + info.get("length"));
             System.out.println("Info Hash: " + shaHex);
         }
         else {
@@ -74,6 +85,7 @@ public class Main {
             }
         }
     }
+
     static EncodingType getType(char flag){
         if (Character.isDigit(flag)) { // String Decode
             return EncodingType.STRING;
@@ -119,21 +131,4 @@ public class Main {
         return bencode.decode(bencodedString.getBytes(), Type.DICTIONARY);
     }
 
-    static String toSHA1(Map<String, Object> infoDict){
-        Bencode bencode = new Bencode();
-        try{
-            MessageDigest md = MessageDigest.getInstance("SHA-1");
-            byte[] hashedBytes = md.digest(bencode.encode(infoDict));
-
-            StringBuilder sb = new StringBuilder();
-            for (byte b: hashedBytes)
-                sb.append(String.format("%02x", b));
-
-            return sb.toString();
-
-        } catch (Exception e){
-            System.out.println(e.getMessage());
-            return "Can't Convert to SHA1";
-        }
-    }
 }
