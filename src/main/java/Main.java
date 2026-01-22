@@ -2,8 +2,10 @@ import com.dampcake.bencode.Type;
 import com.google.gson.Gson;
 
 
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 
@@ -15,7 +17,6 @@ public class Main {
     private static final Gson gson = new Gson();
 
     public static void main(String[] args) throws Exception {
-        // You can use print statements as follows for debugging, they'll be visible when running tests.
         System.err.println("Logs from your program will appear here!");
 
         String command = args[0];
@@ -46,10 +47,24 @@ public class Main {
                     (Map<String, Object>) rawBencode.decode(torrentBytes, Type.DICTIONARY).get("info"));
             String shaHex = DigestUtils.sha1Hex(infoBytes);
 
+            // Extracting SHA1 pieces
+            ByteBuffer buffer = (ByteBuffer) rawBencode.decode(infoBytes, Type.DICTIONARY).get("pieces");
+            byte[] pieces = new byte[buffer.remaining()];
+            buffer.get(pieces);
+
+            String piecesHexStr = HexFormat.of().formatHex(pieces);
+            String[] sha1Pieces = new String[piecesHexStr.length() / 40];
+            for (int i = 0; i < sha1Pieces.length; i+= 1){
+                sha1Pieces[i] = piecesHexStr.substring(i * 40, i * 40 + 40); // Exclusive substring
+            }
 
             System.out.println("Tracker URL: " + meta.get("announce"));
             System.out.println("Length: " + info.get("length"));
             System.out.println("Info Hash: " + shaHex);
+            System.out.println("Piece Length: " + info.get("piece length"));
+            System.out.println("Piece Hashes: ");
+            for (String piece: sha1Pieces)
+                System.out.println(piece);
         }
         else {
             System.out.println("Unknown command: " + command);
