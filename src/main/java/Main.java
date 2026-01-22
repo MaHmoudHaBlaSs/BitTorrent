@@ -37,33 +37,15 @@ public class Main {
             Map<String, Object> meta = bencode.decode(torrentBytes, Type.DICTIONARY);
             Map<String, Object> info = (Map<String, Object>) meta.get("info");
 
-            // The problem is that when we re encode the decoded info dictionary,
-            // we may get different code because Java Map may change the original order,
-            // and also we need to take care of `pieces` binary format.
-
-            Bencode rawBencode = new Bencode(true); // keep string bytes as is (pieces saved).
-            // .decode() method forces lexicographical order by its implementation nature (order saved).
-            byte[] infoBytes = rawBencode.encode(
-                    (Map<String, Object>) rawBencode.decode(torrentBytes, Type.DICTIONARY).get("info"));
-            String shaHex = DigestUtils.sha1Hex(infoBytes);
-
             // Extracting SHA1 pieces
-            ByteBuffer buffer = (ByteBuffer) rawBencode.decode(infoBytes, Type.DICTIONARY).get("pieces");
-            byte[] pieces = new byte[buffer.remaining()];
-            buffer.get(pieces);
-
-            String piecesHexStr = HexFormat.of().formatHex(pieces);
-            String[] sha1Pieces = new String[piecesHexStr.length() / 40];
-            for (int i = 0; i < sha1Pieces.length; i+= 1){
-                sha1Pieces[i] = piecesHexStr.substring(i * 40, i * 40 + 40); // Exclusive substring
-            }
+            String[] shaPieces = extractShaPieces(torrentBytes);
 
             System.out.println("Tracker URL: " + meta.get("announce"));
             System.out.println("Length: " + info.get("length"));
-            System.out.println("Info Hash: " + shaHex);
+            System.out.println("Info Hash: " + getInfoShaHex(torrentBytes));
             System.out.println("Piece Length: " + info.get("piece length"));
             System.out.println("Piece Hashes: ");
-            for (String piece: sha1Pieces)
+            for (String piece: shaPieces)
                 System.out.println(piece);
         }
         else {
@@ -146,4 +128,44 @@ public class Main {
         return bencode.decode(bencodedString.getBytes(), Type.DICTIONARY);
     }
 
+    static String getInfoShaHex(byte[] torrentBytes){
+        /*
+         * Problem:
+         * Re-encoding the decoded `info` dictionary may not produce identical bytes.
+         *
+         * Reasons:
+         * 1. Java Map does not preserve the original key order by default.
+         * 2. The `pieces` field contains raw binary data and must not be treated as text.
+         *
+         * Impact:
+         * Any byte-level change results in a different info-hash.
+         */
+
+        Bencode rawBencode = new Bencode(true); // useBytes = true → keep string bytes as is (pieces saved).
+        // .decode() method forces lexicographical order by its implementation nature (order saved).
+        byte[] infoBytes = rawBencode.encode(
+                (Map<String, Object>) rawBencode.decode(torrentBytes, Type.DICTIONARY).get("info"));
+
+        return DigestUtils.sha1Hex(infoBytes);
+    }
+
+    static String[] extractShaPieces(byte[] torrentBytes){
+        Bencode rawBencode = new Bencode(true);
+        byte[] infoBytes = rawBencode.encode(
+                (Map<String, Object>)rawBencode.decode(torrentBytes, Type.DICTIONARY).get("info"));
+
+        // You can run the debugger to check that the Object returned is actually a ByteBuffer
+        ByteBuffer buffer = (ByteBuffer) rawBencode.decode(infoBytes, Type.DICTIONARY).get("pieces");
+        byte[] rawPiecesHashes = new byte[buffer.remaining()];
+        buffer.get(rawPiecesHashes);
+
+        // Each SHA1 code is length fixed to 20 Byte which is 40 Hex Character.
+        String piecesHexStr = HexFormat.of().formatHex(rawPiecesHashes);
+        String[] shaPieces = new String[piecesHexStr.length() / 40];
+        for (int i = 0; i < shaPieces.length; i+= 1){
+            shaPieces[i] = piecesHexStr.substring(i * 40, i * 40 + 40); // Exclusive substring
+        }
+
+        return shaPieces;
+    }
 }
