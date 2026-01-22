@@ -2,19 +2,34 @@ import com.dampcake.bencode.Type;
 import com.google.gson.Gson;
 
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.net.HttpURLConnection;
+import java.net.URI;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.SecureRandom;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import java.util.Scanner;
 
 import com.dampcake.bencode.Bencode;
+import org.apache.commons.codec.Charsets;
 import org.apache.commons.codec.digest.DigestUtils;
+
+import javax.net.ssl.HttpsURLConnection;
 
 public class Main {
     private static final Bencode bencode = new Bencode();
     private static final Gson gson = new Gson();
+    private static String peerId = "-JT0001-000000000000";
 
     public static void main(String[] args) throws Exception {
         System.err.println("Logs from your program will appear here!");
@@ -42,11 +57,68 @@ public class Main {
 
             System.out.println("Tracker URL: " + meta.get("announce"));
             System.out.println("Length: " + info.get("length"));
-            System.out.println("Info Hash: " + getInfoShaHex(torrentBytes));
+            System.out.println("Info Hash: " + DigestUtils.sha1Hex(getInfoBytes(torrentBytes)));
             System.out.println("Piece Length: " + info.get("piece length"));
             System.out.println("Piece Hashes: ");
             for (String piece: shaPieces)
                 System.out.println(piece);
+        }
+        else if ("peers".equals(command)){
+            byte[] torrentBytes = Files.readAllBytes(Path.of(args[1]));
+            Map<String, Object> meta = bencode.decode(torrentBytes, Type.DICTIONARY);
+            Map<String, Object> info = (Map<String, Object>) meta.get("info");
+
+            //  GET: /announce?peer_id=aaaaaaaaaaaaaaaaaaaa&info_hash=aaaaaaaaaaaaaaaaaaaa
+            //  &port=6881&left=0&downloaded=100&uploaded=0&compact=1
+            StringBuilder getRequest = new StringBuilder();
+
+            String announce = (String) meta.get("announce");
+            String infoHashString = DigestUtils.sha1Hex(getInfoBytes(torrentBytes));
+            String infoHashURL = hexStringToURL(infoHashString);
+
+            int port = 6881;
+            int uploaded = 0;
+            int downloaded = 0;
+            long left = (Long) info.get("length");
+            int compact = 1;
+
+            String requestUrl = String.format(
+                    "%s?info_hash=%s&peer_id=%s&port=%d&uploaded=%d&downloaded=%d&left=%d&compact=%d",
+                    announce, infoHashURL, peerId, port, uploaded, downloaded, left, compact);
+            try{
+                URL url = new URI(requestUrl).toURL();
+                HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+                connection.setRequestMethod("GET");
+                int responseCode = connection.getResponseCode();
+
+                if (responseCode == HttpsURLConnection.HTTP_OK){
+                    // The tracker's response is a bencoded dictionary with two keys (interval and peers).
+                    byte[] responseBytes = connection.getInputStream().readAllBytes();
+
+                    Bencode rawBencode = new Bencode(true);
+                    ByteBuffer buffer = (ByteBuffer) rawBencode.decode(responseBytes, Type.DICTIONARY).get("peers");
+                    byte[] peers = new byte[buffer.remaining()];
+                    buffer.get(peers);
+
+                    // Each 6-Bytes group represents IP + Port of a pair.
+                    for (int i = 0; i < peers.length; i += 6){
+                        // Java never changes bits — you change the interpretation.
+                        // By default, Java treats (interprets) byte as a signed value
+                        // print(0xA2) = -94 while it's 162 so we need to convert them to unsigned by adding 0xFF
+                        System.out.print((peers[i] & 0xff)+ "." +(peers[i+1] & 0xff)+ "." +(peers[i+2] & 0xff)
+                                + "." +(peers[i+3] & 0xff)
+                                + ":" + Math.round((peers[i+4] & 0xff) * Math.pow(16, 2) + (peers[i+5] & 0xff)));
+                        System.out.println();
+                    }
+                }
+                else{
+                    System.err.println("Error in sending GET request");
+                }
+
+            } catch (IOException e){
+                System.out.println(e.getMessage());
+            }
+
         }
         else {
             System.out.println("Unknown command: " + command);
@@ -122,13 +194,13 @@ public class Main {
         return bencode.decode(bencodedString.getBytes(), Type.LIST);
     }
 
-    // Keys must be strings and sorted Lexicographically.
-    // {"hello": 52, "foo":"bar"} would be encoded as: d3:foo3:bar5:helloi52ee
     static Map<String, Object> decodeDict(String bencodedString){
+        // Keys must be strings and sorted Lexicographically.
+        // {"hello": 52, "foo":"bar"} would be encoded as: d3:foo3:bar5:helloi52ee
         return bencode.decode(bencodedString.getBytes(), Type.DICTIONARY);
     }
 
-    static String getInfoShaHex(byte[] torrentBytes){
+    static byte[] getInfoBytes(byte[] torrentBytes){
         /*
          * Problem:
          * Re-encoding the decoded `info` dictionary may not produce identical bytes.
@@ -146,7 +218,7 @@ public class Main {
         byte[] infoBytes = rawBencode.encode(
                 (Map<String, Object>) rawBencode.decode(torrentBytes, Type.DICTIONARY).get("info"));
 
-        return DigestUtils.sha1Hex(infoBytes);
+        return infoBytes;
     }
 
     static String[] extractShaPieces(byte[] torrentBytes){
@@ -168,4 +240,19 @@ public class Main {
 
         return shaPieces;
     }
+
+    static String hexStringToURL(String str){
+        // d69f91e6b2ae4c542468d1073a71d4ea13879a7f
+        // %d6%9f%91%e6%b2%ae%4c%54%24%68%d1%07%3a%71%d4%ea%13%87%9a%7f
+        StringBuilder sb = new StringBuilder();
+
+        for (int i = 0; i < str.length(); i++){
+            if (i % 2 == 0)
+                sb.append('%').append(str.charAt(i));
+            else
+                sb.append(str.charAt(i));
+        }
+        return sb.toString();
+    }
+
 }
