@@ -47,4 +47,14 @@ public class ProtocolUtils {
     public static String getPortFromBytes (byte[] raw){
         return String.valueOf(Math.round((raw[0] & 0xff) * Math.pow(16, 2) + (raw[1] & 0xff)));
     }
+
+    public static String[][] toPeersString(byte[] rawPeers){
+        String[][] peers = new String[rawPeers.length / 6][2];
+
+        for (int i = 0; i < rawPeers.length / 6; i++ ){
+            peers[i][0] = getIpFromBytes(Arrays.copyOfRange(rawPeers, i*6, i*6 +4));
+            peers[i][1] = getPortFromBytes(Arrays.copyOfRange(rawPeers, i*6 + 4, i*6 + 6));
+        }
+        return peers;
+    }
 }

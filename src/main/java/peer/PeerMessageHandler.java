@@ -64,7 +64,7 @@ public class PeerMessageHandler {
         Block blockAcquired = ProtocolUtils.extractBlockFromPayload(message.getPayload());
         context.piece.acquireBlock(blockAcquired);
 
-        System.out.println("Received Block: "+ blockAcquired.begin / PieceDownload.BLOCK_SIZE + 1
+        System.out.println("Received Block: "+ (blockAcquired.begin / PieceDownload.BLOCK_SIZE + 1)
                 + " in Piece: "+ blockAcquired.pieceIndex
                 +" From total Blocks of: "+ context.piece.getTotalBlocks());
 
@@ -85,9 +85,11 @@ public class PeerMessageHandler {
         PeerMessage requestMessage = new PeerMessage(13, MessageType.REQUEST,
                 ProtocolUtils.makeRequestPayload(nextBlock.pieceIndex, nextBlock.begin, nextBlock.length));
 
-        NetworkUtils.sendPeerMessage(context.out, requestMessage);
+        if (!context.state.isChoke()){
+            NetworkUtils.sendPeerMessage(context.out, requestMessage);
 
-        context.state.addOutstandingRequest(nextBlock.pieceIndex + nextBlock.begin + nextBlock.length);
+            context.state.addOutstandingRequest(nextBlock.pieceIndex + nextBlock.begin + nextBlock.length);
+        }
     }
 
 }

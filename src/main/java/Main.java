@@ -3,18 +3,14 @@ import com.google.gson.Gson;
 
 import java.io.*;
 import java.net.Socket;
-import java.net.SocketTimeoutException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 
 import files.PieceDownload;
-import peer.PeerConnection;
-import peer.PeerContext;
-import peer.PeerMessageHandler;
+import peer.Swarm;
 import protocol.Handshake;
-import protocol.PeerMessage;
 import utils.EncodingUtils;
 import utils.NetworkUtils;
 import protocol.ProtocolUtils;
@@ -24,7 +20,7 @@ public class Main {
     private static final Gson gson = new Gson();
     private static final String myId = "-JT0001-000000000000";
 
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args){
         System.err.println("Logs from your program will appear here!");
 
         String command = args[0];
@@ -134,7 +130,7 @@ public class Main {
     }
 
     public static void downloadPieceCommand(String torrentPath, int pieceIndex, String downloadDir){
-        try{
+        try {
             // Read Torrent File
             Torrent torrentFile = new Torrent(Files.readAllBytes(Path.of(torrentPath)));
 
@@ -152,49 +148,23 @@ public class Main {
             byte[] peers = new byte[buffer.remaining()];
             buffer.get(peers);
 
-            String targetPeerIP = ProtocolUtils.
-                    getIpFromBytes(Arrays.copyOfRange(peers, 0, 4)); // Get first peerIP
-            String targetPeerPort = ProtocolUtils.
-                    getPortFromBytes(Arrays.copyOfRange(peers, 4, 6)); // Get first peerPort
-
-            Handshake handshake = new Handshake(torrentFile, myId);
-
-            // Establish connection with a peer
-            // TODO:
-            //  Our Logic works but we need to add a mechanism to pick another peer
-            //  when the current connected peer is dropped
-
-            PeerConnection peerConnection = new PeerConnection(
-                    handshake, targetPeerIP, Integer.parseInt(targetPeerPort));
 
             PieceDownload piece = new PieceDownload(
                     pieceIndex, (int) torrentFile.getPieceLength(),
                     ProtocolUtils.extractPieceShaHash(torrentFile.getRawShaPieces(), pieceIndex),
                     downloadDir);
 
-            PeerContext peerContext = new PeerContext(
-                    peerConnection.getState(), torrentFile, peerConnection.getOut(), piece);
+            Swarm swarm = new Swarm(peers, torrentFile, piece, myId);
+            boolean done = swarm.work();
+            if (done)
+                System.out.println("Piece Downloaded Successfully");
+            else
+                System.out.println("Couldn't Download the Piece");
 
-            PeerMessageHandler messageHandler = new PeerMessageHandler();
+            swarm.destroy();
 
-            while (true){
-                try{
-                    PeerMessage receivedMessage = NetworkUtils.readPeerMessage(peerConnection.getIn());
-                    if (receivedMessage != null)
-                        messageHandler.handle(receivedMessage, peerContext);
-
-                    if (piece.isCompleted())
-                        break;
-
-                } catch (Exception e){
-                    System.err.println(e.getMessage());
-                    break;
-                }
-            }
-            peerConnection.closeConnection();
-
-        } catch (Exception e){
-            System.err.println(e.getMessage());
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
 }
