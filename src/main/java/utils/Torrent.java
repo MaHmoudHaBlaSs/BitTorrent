@@ -1,7 +1,7 @@
 package utils;/*
     Main
      ├── utils.Torrent
-     ├── utils.ProtocolUtils
+     ├── protocol.ProtocolUtils
      │     └── utils.EncodingUtils
      └── utils.NetworkUtils
  */

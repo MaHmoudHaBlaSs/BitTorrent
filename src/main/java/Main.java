@@ -2,14 +2,22 @@ import com.google.gson.Gson;
 
 
 import java.io.*;
+import java.net.Socket;
+import java.net.SocketTimeoutException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 
+import files.PieceDownload;
+import peer.PeerConnection;
+import peer.PeerContext;
+import peer.PeerMessageHandler;
+import protocol.Handshake;
+import protocol.PeerMessage;
 import utils.EncodingUtils;
 import utils.NetworkUtils;
-import utils.ProtocolUtils;
+import protocol.ProtocolUtils;
 import utils.Torrent;
 
 public class Main {
@@ -36,7 +44,10 @@ public class Main {
             handshakeCommand(args[1], peerInfo[0], peerInfo[1]);
         }
         else if ("download_piece".equals(command)){
-
+            String downloadDir = args[2];
+            String torrentUrl = args[3];
+            int pieceIndex = Integer.parseInt(args[4]);
+            downloadPieceCommand(torrentUrl, pieceIndex, downloadDir);
         }
         else {
             System.out.println("Unknown command: " + command);
@@ -104,17 +115,16 @@ public class Main {
     }
 
     public static void handshakeCommand(String torrentPath, String peerIP, String peerPort){
-        try{
-            // TODO: Refactor to use utils.Torrent
+        try (Socket socket = new Socket(peerIP, Integer.parseInt(peerPort))){
             Torrent torrentFile = new Torrent(Files.readAllBytes(Path.of(torrentPath)));
+            Handshake handshake = new Handshake(torrentFile, myId);
 
-            byte[] handshake = ProtocolUtils.buildPeerHandshake(torrentFile, myId);
-
-            byte[] responseHandshake = NetworkUtils.sendAndReceiveHandshake(handshake, peerIP, peerPort);
+            Handshake responseHandshake = NetworkUtils.sendAndReceiveHandshake(
+                    socket.getInputStream(), socket.getOutputStream(), handshake.getRawHandshake());
 
             assert responseHandshake != null;
             System.out.println("Peer ID: "
-                    + HexFormat.of().formatHex(Arrays.copyOfRange(responseHandshake, 48, 68)));
+                    + HexFormat.of().formatHex(responseHandshake.getPeerId()));
 
         } catch (IOException e){
             System.err.println(e.getMessage());
@@ -123,4 +133,68 @@ public class Main {
         }
     }
 
+    public static void downloadPieceCommand(String torrentPath, int pieceIndex, String downloadDir){
+        try{
+            // Read Torrent File
+            Torrent torrentFile = new Torrent(Files.readAllBytes(Path.of(torrentPath)));
+
+            // Send a GET request to tracker to get peers' list
+            String announce = torrentFile.getAnnounce();
+            String infoHashHex = torrentFile.getInfoHashHex();
+            String infoHashURL = EncodingUtils.hexStringToURL(infoHashHex);
+            long left = torrentFile.getFileLength();
+
+            String requestUrl = ProtocolUtils.buildURL(
+                    announce, infoHashURL, myId, 6881, 0, 0, left, 1);
+
+            byte[] trackerResponse = NetworkUtils.requestAvailablePeers(requestUrl);
+            ByteBuffer buffer = (ByteBuffer) EncodingUtils.rawDecodeDict(trackerResponse).get("peers");
+            byte[] peers = new byte[buffer.remaining()];
+            buffer.get(peers);
+
+            String targetPeerIP = ProtocolUtils.
+                    getIpFromBytes(Arrays.copyOfRange(peers, 0, 4)); // Get first peerIP
+            String targetPeerPort = ProtocolUtils.
+                    getPortFromBytes(Arrays.copyOfRange(peers, 4, 6)); // Get first peerPort
+
+            Handshake handshake = new Handshake(torrentFile, myId);
+
+            // Establish connection with a peer
+            // TODO:
+            //  Our Logic works but we need to add a mechanism to pick another peer
+            //  when the current connected peer is dropped
+
+            PeerConnection peerConnection = new PeerConnection(
+                    handshake, targetPeerIP, Integer.parseInt(targetPeerPort));
+
+            PieceDownload piece = new PieceDownload(
+                    pieceIndex, (int) torrentFile.getPieceLength(),
+                    ProtocolUtils.extractPieceShaHash(torrentFile.getRawShaPieces(), pieceIndex),
+                    downloadDir);
+
+            PeerContext peerContext = new PeerContext(
+                    peerConnection.getState(), torrentFile, peerConnection.getOut(), piece);
+
+            PeerMessageHandler messageHandler = new PeerMessageHandler();
+
+            while (true){
+                try{
+                    PeerMessage receivedMessage = NetworkUtils.readPeerMessage(peerConnection.getIn());
+                    if (receivedMessage != null)
+                        messageHandler.handle(receivedMessage, peerContext);
+
+                    if (piece.isCompleted())
+                        break;
+
+                } catch (Exception e){
+                    System.err.println(e.getMessage());
+                    break;
+                }
+            }
+            peerConnection.closeConnection();
+
+        } catch (Exception e){
+            System.err.println(e.getMessage());
+        }
+    }
 }

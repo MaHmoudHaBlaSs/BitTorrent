@@ -3,6 +3,7 @@ package utils;
 import com.dampcake.bencode.Bencode;
 import com.dampcake.bencode.Type;
 
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 
@@ -42,9 +43,7 @@ public class EncodingUtils {
                 case EncodingType.DICT -> {
                     return bencode.decode(bencodedString.getBytes(), Type.DICTIONARY);
                 }
-                default -> {
-                    throw new RuntimeException("Unknown coded value!");
-                }
+                default -> throw new RuntimeException("Unknown coded value!");
             }
         } catch (Exception e){
             System.err.println(e.getMessage());
@@ -109,4 +108,14 @@ public class EncodingUtils {
         return sb.toString();
     }
 
+    public static int convertBytesToInt(byte[] raw){
+        ByteBuffer buffer = ByteBuffer.allocate(Integer.BYTES);
+        buffer.put(raw);
+        buffer.rewind(); // Must use rewind between each operation in ByteBuffer
+        return buffer.getInt(); // Convert int to a byte array.
+    }
+
+    public static byte[] convertIntToBytes(int val){
+        return ByteBuffer.allocate(4).putInt(val).array(); // Convert int to a byte array.
+    }
 }
