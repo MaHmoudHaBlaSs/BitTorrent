@@ -1,6 +1,5 @@
 package peer;
 
-import files.Block;
 import files.PieceDownload;
 import protocol.Handshake;
 import protocol.PeerMessage;
@@ -9,9 +8,9 @@ import utils.NetworkUtils;
 import utils.Torrent;
 
 import java.io.IOException;
-import java.util.LinkedList;
 
 public class Swarm {
+    // Connection Response is just a wrapper class to enable passing (message + connection)
     public static class ConnectionResponse{
         PeerMessage message;
         PeerConnection connection;
@@ -25,25 +24,28 @@ public class Swarm {
     static final int MAX_CONNECTIONS = 10;
 
     String[][] peersInfo;
-    LinkedList<PeerConnection> peerConnections;
+    PeerConnection[] peerConnections;
     Torrent torrentFile;
     PieceDownload pieceDownloader;
     PeerMessageHandler messageHandler;
+    int availablePeers;
 
 
     public Swarm(byte[] rawPeersInfo, Torrent torrentFile, PieceDownload piece, String myId){
 
         this.peersInfo = ProtocolUtils.toPeersString(rawPeersInfo);
-        this.peerConnections = new LinkedList<>();
+        this.peerConnections = new PeerConnection[peersInfo.length];
         this.pieceDownloader = piece;
         this.torrentFile = torrentFile;
         this.messageHandler = new PeerMessageHandler();
 
         for (int i = 0; i < peersInfo.length && i < MAX_CONNECTIONS; i++){
-            peerConnections.add(new PeerConnection( new Handshake(torrentFile, myId),
+            peerConnections[i] = new PeerConnection( new Handshake(torrentFile, myId),
                     peersInfo[i][0],
-                    Integer.parseInt(peersInfo[i][1])));
+                    Integer.parseInt(peersInfo[i][1]));
+            availablePeers++;
         }
+        System.out.println("Swarm has "+ peerConnections.length +" peers");
     }
 
     public boolean work(){
@@ -60,8 +62,11 @@ public class Swarm {
                 }
                 else{
                     System.out.println("No Response Received.");
+                    if (availablePeers == 0)
+                        return false;
                 }
             }
+
 
         } catch (Exception e){
             return false;
@@ -71,15 +76,20 @@ public class Swarm {
     }
 
     public ConnectionResponse getMessage(){
-        for (PeerConnection connection: peerConnections) {
+        for (int i = 0; i < peerConnections.length; i++) {
+            if (peerConnections[i] == null)
+                continue;
+
             try {
-                PeerMessage receivedMessage = NetworkUtils.readPeerMessage(connection.getIn());
+                PeerMessage receivedMessage = NetworkUtils.readPeerMessage(peerConnections[i].getIn());
 
                 if (receivedMessage != null)
-                    return new ConnectionResponse(receivedMessage, connection);
+                    return new ConnectionResponse(receivedMessage, peerConnections[i]);
 
             } catch (IOException e) {
-                System.out.println("A Connection failed while receiving/handling");
+                peerConnections[i] = null;
+                availablePeers--;
+                System.err.println("A Connection failed while receiving/handling, Available Peers: "+ availablePeers);
             }
         }
         return null;
@@ -88,10 +98,11 @@ public class Swarm {
     public void destroy() {
         try{
             for (PeerConnection connection: peerConnections) {
-                connection.closeConnection();
+                if (connection != null)
+                    connection.closeConnection();
             }
         } catch (Exception e){
-            System.out.println("Smth happened while closing a Connection,");
+            System.out.println(e.getMessage());
         }
     }
 }
