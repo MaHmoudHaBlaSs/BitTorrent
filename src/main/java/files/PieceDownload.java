@@ -1,9 +1,7 @@
 package files;
 
 import org.apache.commons.codec.digest.DigestUtils;
-import utils.EncodingUtils;
 
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Arrays;
@@ -47,7 +45,7 @@ public class PieceDownload {
         int blockBegin = blockIndex * BLOCK_SIZE;
 
         // Check if last block
-        int length = (blockIndex == receivedBlocks.size()-1)? pieceLength - blockBegin: BLOCK_SIZE;
+        int length = (blockIndex == totalBlocks-1)? pieceLength - blockBegin: BLOCK_SIZE;
         return new Block(pieceIndex, blockBegin, length);
     }
 

@@ -1,7 +1,6 @@
 package peer;
 
 import files.Block;
-import files.PieceDownload;
 import protocol.MessageType;
 import protocol.PeerMessage;
 import protocol.ProtocolUtils;
@@ -64,10 +63,6 @@ public class PeerMessageHandler {
         Block blockAcquired = ProtocolUtils.extractBlockFromPayload(message.getPayload());
         context.piece.acquireBlock(blockAcquired);
 
-        System.out.println("Received Block: "+ (blockAcquired.begin / PieceDownload.BLOCK_SIZE + 1)
-                + " in Piece: "+ blockAcquired.pieceIndex
-                +" From total Blocks of: "+ context.piece.getTotalBlocks());
-
         Block nextBlock = context.piece.nextBlock();
 
         if (nextBlock == null){
@@ -82,8 +77,10 @@ public class PeerMessageHandler {
             }
         }
 
+
         PeerMessage requestMessage = new PeerMessage(13, MessageType.REQUEST,
                 ProtocolUtils.makeRequestPayload(nextBlock.pieceIndex, nextBlock.begin, nextBlock.length));
+
 
         if (!context.state.isChoke()){
             NetworkUtils.sendPeerMessage(context.out, requestMessage);

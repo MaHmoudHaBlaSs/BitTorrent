@@ -2,9 +2,7 @@ package protocol;
 
 import utils.EncodingUtils;
 
-import java.nio.ByteBuffer;
 import java.util.Arrays;
-import java.util.BitSet;
 
 public class PeerMessage {
 
@@ -55,5 +53,15 @@ public class PeerMessage {
     }
     public byte[] getRawMessage() {
         return rawMessage;
+    }
+
+    @Override
+    public String toString() {
+        return "PeerMessage { " +
+                "length= " + length +
+                ", messageId= " + messageId +
+                ", payload= " + Arrays.toString(payload) +
+                ", rawMessage= " + Arrays.toString(rawMessage) +
+                '}';
     }
 }

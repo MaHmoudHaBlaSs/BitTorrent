@@ -22,6 +22,7 @@ public class Swarm {
     }
 
     static final int MAX_CONNECTIONS = 10;
+    final String myId;
 
     String[][] peersInfo;
     PeerConnection[] peerConnections;
@@ -32,7 +33,7 @@ public class Swarm {
 
 
     public Swarm(byte[] rawPeersInfo, Torrent torrentFile, PieceDownload piece, String myId){
-
+        this.myId = myId;
         this.peersInfo = ProtocolUtils.toPeersString(rawPeersInfo);
         this.peerConnections = new PeerConnection[peersInfo.length];
         this.pieceDownloader = piece;
@@ -45,7 +46,6 @@ public class Swarm {
                     Integer.parseInt(peersInfo[i][1]));
             availablePeers++;
         }
-        System.out.println("Swarm has "+ peerConnections.length +" peers");
     }
 
     public boolean work(){
@@ -74,6 +74,7 @@ public class Swarm {
 
         return true;
     }
+    // Do NOT: request a block you already requested too many times
 
     public ConnectionResponse getMessage(){
         for (int i = 0; i < peerConnections.length; i++) {
@@ -87,9 +88,9 @@ public class Swarm {
                     return new ConnectionResponse(receivedMessage, peerConnections[i]);
 
             } catch (IOException e) {
-                peerConnections[i] = null;
-                availablePeers--;
-                System.err.println("A Connection failed while receiving/handling, Available Peers: "+ availablePeers);
+                    peerConnections[i] = null;
+                    availablePeers--;
+                    System.out.println(e.getMessage());
             }
         }
         return null;

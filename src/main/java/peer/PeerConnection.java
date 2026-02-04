@@ -8,7 +8,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.util.Arrays;
-import java.util.BitSet;
 
 public class PeerConnection {
     private Socket socket;
@@ -37,11 +36,6 @@ public class PeerConnection {
         } catch (Exception e){
             System.out.println(e.getMessage());
         }
-    }
-
-    public boolean isAlive(){
-        // TODO: return status of the connection
-        return false;
     }
 
     public void closeConnection() throws IOException {

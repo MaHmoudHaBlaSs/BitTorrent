@@ -150,7 +150,7 @@ public class Main {
 
 
             PieceDownload piece = new PieceDownload(
-                    pieceIndex, (int) torrentFile.getPieceLength(),
+                    pieceIndex, (int) torrentFile.calculatePieceLength(pieceIndex),
                     ProtocolUtils.extractPieceShaHash(torrentFile.getRawShaPieces(), pieceIndex),
                     downloadDir);
 

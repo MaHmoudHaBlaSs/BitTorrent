@@ -4,6 +4,7 @@ import com.dampcake.bencode.Bencode;
 import com.dampcake.bencode.Type;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.List;
 import java.util.Map;
 
@@ -116,6 +117,6 @@ public class EncodingUtils {
     }
 
     public static byte[] convertIntToBytes(int val){
-        return ByteBuffer.allocate(4).putInt(val).array(); // Convert int to a byte array.
+        return ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN).putInt(val).array(); // Convert int to a byte array.
     }
 }

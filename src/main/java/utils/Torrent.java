@@ -1,10 +1,4 @@
-package utils;/*
-    Main
-     ├── utils.Torrent
-     ├── protocol.ProtocolUtils
-     │     └── utils.EncodingUtils
-     └── utils.NetworkUtils
- */
+package utils;
 
 import org.apache.commons.codec.digest.DigestUtils;
 
@@ -46,6 +40,7 @@ public class Torrent {
         announce = (String) meta.get("announce");
         fileLength = (Long) info.get("length");
         pieceLength = (Long) info.get("piece length");
+
     }
 
     private byte[] getInfoBytes(){
@@ -91,6 +86,12 @@ public class Torrent {
 
     public long getFileLength() {
         return fileLength;
+    }
+
+    // Piece length is the same for all pieces except the last piece.
+    public long calculatePieceLength(int pieceIndex){
+        long pieceStart = pieceIndex * pieceLength;
+        return Math.min(fileLength - pieceStart, pieceLength);
     }
     public long getPieceLength() {
         return pieceLength;

@@ -1,22 +1,17 @@
 package utils;
 
 import protocol.Handshake;
-import protocol.MessageType;
 import protocol.PeerMessage;
-import protocol.ProtocolUtils;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
-import java.net.Socket;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
-import java.nio.ByteBuffer;
-import java.util.Arrays;
 
 public class NetworkUtils {
 
@@ -77,7 +72,7 @@ public class NetworkUtils {
             // so we perform while loop till we ensure reading 4 bytes
             int actualRead = in.read(rawMsgLength, read, 4 - read);
             if (actualRead == -1)
-                throw new IOException("Peer closed connection during reading input stream");
+                throw new IOException("Peer closed connection during reading input stream length");
 
             read += actualRead;
         }
