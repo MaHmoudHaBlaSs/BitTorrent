@@ -6,10 +6,6 @@ public class Block {
     public int length;
     public byte[] data;
 
-    public void setData(byte[] data) {
-        this.data = data;
-    }
-
     public Block(int pieceIndex, int begin, int length) {
         this.pieceIndex = pieceIndex;
         this.begin = begin;

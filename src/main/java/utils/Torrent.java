@@ -1,6 +1,7 @@
 package utils;
 
 import org.apache.commons.codec.digest.DigestUtils;
+import protocol.ProtocolUtils;
 
 import java.nio.ByteBuffer;
 import java.util.HexFormat;
@@ -93,6 +94,13 @@ public class Torrent {
         long pieceStart = pieceIndex * pieceLength;
         return Math.min(fileLength - pieceStart, pieceLength);
     }
+
+    public String buildTrackerGetRequest(String myId){
+        String infoHashURL = EncodingUtils.hexStringToURL(infoHashHex);
+        return ProtocolUtils.buildURL(
+                announce, infoHashURL, myId, 6881, 0, 0, fileLength, 1);
+    }
+
     public long getPieceLength() {
         return pieceLength;
     }

@@ -2,9 +2,8 @@ package protocol;
 
 import files.Block;
 import utils.EncodingUtils;
-import utils.Torrent;
 
-import java.nio.charset.StandardCharsets;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 
 public class ProtocolUtils {
@@ -55,6 +54,13 @@ public class ProtocolUtils {
             peers[i][0] = getIpFromBytes(Arrays.copyOfRange(rawPeers, i*6, i*6 +4));
             peers[i][1] = getPortFromBytes(Arrays.copyOfRange(rawPeers, i*6 + 4, i*6 + 6));
         }
+        return peers;
+    }
+
+    public static byte[] extractPeers(byte[] trackerResponse){
+        ByteBuffer buffer = (ByteBuffer) EncodingUtils.rawDecodeDict(trackerResponse).get("peers");
+        byte[] peers = new byte[buffer.remaining()];
+        buffer.get(peers);
         return peers;
     }
 }

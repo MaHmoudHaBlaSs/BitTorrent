@@ -8,7 +8,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 
-import files.PieceDownload;
+import files.FileDownloader;
+import files.PieceDownloader;
 import peer.Swarm;
 import protocol.Handshake;
 import utils.EncodingUtils;
@@ -44,6 +45,11 @@ public class Main {
             String torrentUrl = args[3];
             int pieceIndex = Integer.parseInt(args[4]);
             downloadPieceCommand(torrentUrl, pieceIndex, downloadDir);
+        }
+        else if ("download".equals(command)){
+            String downloadDir = args[2];
+            String torrentUrl = args[3];
+            downloadFileCommand(torrentUrl, downloadDir);
         }
         else {
             System.out.println("Unknown command: " + command);
@@ -135,27 +141,20 @@ public class Main {
             Torrent torrentFile = new Torrent(Files.readAllBytes(Path.of(torrentPath)));
 
             // Send a GET request to tracker to get peers' list
-            String announce = torrentFile.getAnnounce();
-            String infoHashHex = torrentFile.getInfoHashHex();
-            String infoHashURL = EncodingUtils.hexStringToURL(infoHashHex);
-            long left = torrentFile.getFileLength();
-
-            String requestUrl = ProtocolUtils.buildURL(
-                    announce, infoHashURL, myId, 6881, 0, 0, left, 1);
+            String requestUrl = torrentFile.buildTrackerGetRequest(myId);
 
             byte[] trackerResponse = NetworkUtils.requestAvailablePeers(requestUrl);
-            ByteBuffer buffer = (ByteBuffer) EncodingUtils.rawDecodeDict(trackerResponse).get("peers");
-            byte[] peers = new byte[buffer.remaining()];
-            buffer.get(peers);
+            byte[] peers = ProtocolUtils.extractPeers(trackerResponse);
 
-
-            PieceDownload piece = new PieceDownload(
-                    pieceIndex, (int) torrentFile.calculatePieceLength(pieceIndex),
+            PieceDownloader piece = new PieceDownloader(
+                    pieceIndex,
+                     pieceIndex * (int) torrentFile.getPieceLength(),
+                    (int) torrentFile.calculatePieceLength(pieceIndex),
                     ProtocolUtils.extractPieceShaHash(torrentFile.getRawShaPieces(), pieceIndex),
                     downloadDir);
 
-            Swarm swarm = new Swarm(peers, torrentFile, piece, myId);
-            boolean done = swarm.work();
+            Swarm swarm = new Swarm(peers, torrentFile, myId);
+            boolean done = swarm.downloadPiece(piece);
             if (done)
                 System.out.println("Piece Downloaded Successfully");
             else
@@ -165,6 +164,36 @@ public class Main {
 
         } catch (Exception e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    public static void downloadFileCommand(String torrentPath, String downloadDir){
+        try{
+            Torrent torrentFile = new Torrent(Files.readAllBytes(Path.of(torrentPath)));
+
+            String requestUrl = torrentFile.buildTrackerGetRequest(myId);
+
+            byte[] trackerResponse = NetworkUtils.requestAvailablePeers(requestUrl);
+            byte[] peers = ProtocolUtils.extractPeers(trackerResponse);
+
+            // a file consists of n pieces, and a piece consists of y blocks.
+            FileDownloader fileDownloader = new FileDownloader(
+                    (int) torrentFile.getFileLength(),
+                    (int) torrentFile.getPieceLength(),
+                    torrentFile.getRawShaPieces(),
+                    downloadDir);
+
+            Swarm swarm = new Swarm(peers, torrentFile, myId);
+            boolean done = swarm.downloadFile(fileDownloader);
+            if (done)
+                System.out.println("File Downloaded Successfully");
+            else
+                System.out.println("Couldn't Download the File");
+
+            swarm.destroy();
+
+        } catch (Exception e){
+            System.out.println(e.getMessage());
         }
     }
 }

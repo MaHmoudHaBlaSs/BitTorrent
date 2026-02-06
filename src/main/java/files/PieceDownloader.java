@@ -7,34 +7,37 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.BitSet;
 
-public class PieceDownload {
+public class PieceDownloader {
     public static final int BLOCK_SIZE = 16 * 1024; // 16Kb
 
     int pieceIndex;
     int pieceLength;
+    int pieceBegin;
     byte[] pieceHash;
     byte[] buffer;
     BitSet receivedBlocks;
-    boolean completed;
+    private boolean completed;
 
-    public int getTotalBlocks() {
-        return totalBlocks;
-    }
+    public int totalBlocks;
+    String downloadDir;
 
-    int totalBlocks;
 
-    final String downloadDir;
-
-    public PieceDownload(int pieceIndex, int pieceLength, byte[] pieceHash, String downloadDir){
+    public PieceDownloader(int pieceIndex, int pieceBegin, int pieceLength, byte[] pieceHash){
         this.pieceIndex = pieceIndex;
         this.pieceLength = pieceLength;
+        this.pieceBegin = pieceBegin;
+
         this.pieceHash = pieceHash;
         buffer = new byte[pieceLength];
-        this.downloadDir = downloadDir;
 
         totalBlocks = (pieceLength % BLOCK_SIZE == 0)? pieceLength / BLOCK_SIZE: (pieceLength / BLOCK_SIZE) + 1;
         receivedBlocks = new BitSet(totalBlocks); // By default, all bits are set to 0
         completed = false;
+    }
+
+    public PieceDownloader(int pieceIndex,int pieceBegin, int pieceLength, byte[] pieceHash, String downloadDir){
+        this(pieceIndex, pieceBegin, pieceLength, pieceHash);
+        this.downloadDir = downloadDir;
     }
 
     public Block nextBlock(){
@@ -58,11 +61,11 @@ public class PieceDownload {
 
     public boolean checkPiece(){
         byte[] hashedBuffer = DigestUtils.sha1(buffer);
-        return Arrays.equals(hashedBuffer, pieceHash);
+        completed = Arrays.equals(hashedBuffer, pieceHash);
+        return completed;
     }
 
     public void saveToDisk() throws IOException {
-        completed = true;
         FileOutputStream fos = new FileOutputStream(downloadDir);
         fos.write(buffer);
     }
@@ -77,4 +80,5 @@ public class PieceDownload {
     public boolean isCompleted(){
         return completed;
     }
+
 }

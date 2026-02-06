@@ -1,6 +1,7 @@
 package peer;
 
-import files.PieceDownload;
+import files.FileDownloader;
+import files.PieceDownloader;
 import utils.Torrent;
 
 import java.io.OutputStream;
@@ -11,15 +12,26 @@ import java.io.OutputStream;
  */
 
 public class PeerContext {
-    final PeerState state;
-    final Torrent torrentFile;
-    final OutputStream out;
-    final PieceDownload piece;
+    PeerState state;
+    Torrent torrentFile;
+    OutputStream out;
+    PieceDownloader pieceDownloader;
+    FileDownloader fileDownloader;
 
-    public PeerContext(PeerState state, Torrent torrent, OutputStream out, PieceDownload piece){
+    public PeerContext(PeerState state, Torrent torrent, OutputStream out, PieceDownloader pieceDownloader){
         this.out = out;
         this.state = state;
         this.torrentFile = torrent;
-        this.piece = piece;
+        this.pieceDownloader = pieceDownloader;
+        this.fileDownloader = null;
+    }
+
+    public PeerContext(PeerState state, Torrent torrent, OutputStream out, FileDownloader fileDownloader){
+        this.out = out;
+        this.state = state;
+        this.torrentFile = torrent;
+        this.fileDownloader = fileDownloader;
+        this.pieceDownloader = null;
     }
 }
+

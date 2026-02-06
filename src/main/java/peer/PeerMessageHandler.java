@@ -1,6 +1,7 @@
 package peer;
 
 import files.Block;
+import files.PieceDownloader;
 import protocol.MessageType;
 import protocol.PeerMessage;
 import protocol.ProtocolUtils;
@@ -20,7 +21,7 @@ public class PeerMessageHandler {
                 case MessageType.BITFIELD -> handleBitfield(message, context);
                 case MessageType.INTERESTED -> handleInterested(message, context);
                 case MessageType.CHOKE -> handleChoke(message, context);
-                case MessageType.UN_CHOKED -> handleUnchoke(message, context);
+                case MessageType.UN_CHOKED -> handleUnchoke(context);
                 case MessageType.REQUEST -> handleRequest(message, context);
                 case MessageType.PIECE -> handlePiece(message, context);
                 default -> throw new RuntimeException("Unknown MessageType Received!!");
@@ -39,9 +40,16 @@ public class PeerMessageHandler {
 
     }
 
-    private void handleUnchoke(PeerMessage message, PeerContext context) throws IOException {
+    private void handleUnchoke(PeerContext context) throws IOException {
+        boolean isFile = (context.fileDownloader != null);
+        PieceDownloader pieceDownloader;
+        if (isFile)
+            pieceDownloader = context.fileDownloader.nextPiece();
+        else // It's just a piece without a file (piece download command)
+            pieceDownloader = context.pieceDownloader;
+
         context.state.setChoke(false);
-        Block block = context.piece.nextBlock();
+        Block block = pieceDownloader.nextBlock();
         if (block == null)
             return;
 
@@ -60,19 +68,35 @@ public class PeerMessageHandler {
     }
 
     private void handlePiece(PeerMessage message, PeerContext context) throws IOException {
+        boolean isFile = (context.fileDownloader != null);
         Block blockAcquired = ProtocolUtils.extractBlockFromPayload(message.getPayload());
-        context.piece.acquireBlock(blockAcquired);
 
-        Block nextBlock = context.piece.nextBlock();
+        PieceDownloader pieceDownloader;
+        if (isFile)
+            pieceDownloader = context.fileDownloader.getPieceDownloader(blockAcquired.pieceIndex);
+        else // It's just a piece without a file (piece download command)
+            pieceDownloader = context.pieceDownloader;
+
+        pieceDownloader.acquireBlock(blockAcquired);
+        Block nextBlock = pieceDownloader.nextBlock();
 
         if (nextBlock == null){
-            if (context.piece.checkPiece()){
-                context.piece.saveToDisk();
+            if (pieceDownloader.checkPiece()){
+                if (isFile){
+                    // Acquire a piece then Ask file downloader for another piece (if exist)
+                    context.fileDownloader.acquirePiece(pieceDownloader);
 
-                return;
-
-            }else {
-                nextBlock = context.piece.resetDownloader();
+                    PieceDownloader nextPieceDownloader = context.fileDownloader.nextPiece();
+                    if (nextPieceDownloader != null)
+                        nextBlock = nextPieceDownloader.nextBlock();
+                    else // No next piece, we are done.
+                        return;
+                }
+                else
+                    return;
+            }
+            else {
+                nextBlock = pieceDownloader.resetDownloader();
                 System.out.println("Incorrect Piece Data Assembled.");
             }
         }
