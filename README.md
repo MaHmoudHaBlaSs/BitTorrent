@@ -1,35 +1,43 @@
-[![progress-banner](https://backend.codecrafters.io/progress/bittorrent/918c18a0-048b-4feb-a944-0ab46ae4b68c)](https://app.codecrafters.io/users/codecrafters-bot?r=2qF)
+# BitTorrent Client
 
-This is a starting point for Java solutions to the
-["Build Your Own BitTorrent" Challenge](https://app.codecrafters.io/courses/bittorrent/overview).
+A minimal BitTorrent client implemented from scratch in Java.  
+This project demonstrates how peer-to-peer file sharing works internally by implementing the core BitTorrent protocol, 
+including tracker communication, peer connections, piece downloading, and file reconstruction.
 
-In this challenge, you’ll build a BitTorrent client that's capable of parsing a
-.torrent file and downloading a file from a peer. Along the way, we’ll learn
-about how torrent files are structured, HTTP trackers, BitTorrent’s Peer
-Protocol, pipelining and more.
+>This project was done with help of [Codecrafters.io](https://app.codecrafters.io/) they provided the tracker behavior and peers to connect with.
 
-**Note**: If you're viewing this repo on GitHub, head over to
-[codecrafters.io](https://codecrafters.io) to try the challenge.
 
-# Passing the first stage
+## Features
 
-The entry point for your BitTorrent implementation is in
-`src/main/java/Main.java`. Study and uncomment the relevant code, and push your
-changes to pass the first stage:
+- Parse and decode `.torrent` files (bencode format)
+- Communicate with HTTP trackers to retrieve peer lists
+- Establish TCP connections with peers
+- Perform BitTorrent handshake
+- Exchange protocol messages:
+   - choke / unchoke
+   - interested / not interested
+   - have
+   - bitfield
+   - request
+   - piece
+- Download torrent data in pieces
+- Verify piece integrity using SHA-1 hashes
+- Reconstruct original files from downloaded pieces
+- Support multi-file torrents
 
-```sh
-git commit -am "pass 1st stage" # any msg
-git push origin master
-```
+## How It Works
 
-Time to move on to the next stage!
+BitTorrent splits the entire torrent payload into fixed-size pieces.  
+The client:
 
-# Stage 2 & beyond
+1. Parses the `.torrent` file
+2. Contacts the tracker to get peers
+3. Connects to peers via TCP
+4. Requests pieces from peers
+5. Verifies each piece using SHA-1
+6. Writes verified data to disk
+7. Reconstructs the original file(s)
 
-Note: This section is for stages 2 and beyond.
+Peers exchange pieces independently of file boundaries.
 
-1. Ensure you have `mvn` installed locally
-1. Run `./your_program.sh` to run your program, which is implemented in
-   `src/main/java/Main.java`.
-1. Commit your changes and run `git push origin master` to submit your solution
-   to CodeCrafters. Test output will be streamed to your terminal.
+Check this Notion notebook for more explanation: [BitTorrent Client Notebook](https://walnut-crocus-562.notion.site/BitTorrent-2ed6ce80c3168064b64ad6fbd92ace8c?source=copy_link)
